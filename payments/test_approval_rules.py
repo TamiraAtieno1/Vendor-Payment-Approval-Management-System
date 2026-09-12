@@ -154,3 +154,25 @@ class CanApproveTests(SimpleTestCase):
             approved_levels=[],
         )
         self.assertEqual(result.reason, REASON_NOT_AN_APPROVER)
+
+
+class IsFullyApprovedTests(SimpleTestCase):
+    """Rule 3: is-it-fully-approved (all required tiers have approved)."""
+
+    def test_small_request_fully_approved_by_one_manager(self):
+        self.assertTrue(services.is_fully_approved(24_500, [MANAGER]))
+
+    def test_small_request_not_approved_with_no_approvals(self):
+        self.assertFalse(services.is_fully_approved(24_500, []))
+
+    def test_large_request_needs_both_tiers(self):
+        self.assertFalse(services.is_fully_approved(67_000, [MANAGER]))
+        self.assertFalse(services.is_fully_approved(67_000, [FINANCE]))
+        self.assertTrue(services.is_fully_approved(67_000, [MANAGER, FINANCE]))
+
+    def test_order_of_approvals_does_not_matter(self):
+        self.assertTrue(services.is_fully_approved(148_000, [FINANCE, MANAGER]))
+
+    def test_extra_approval_levels_are_tolerated(self):
+        # A finance approval on a manager-only request doesn't block completion.
+        self.assertTrue(services.is_fully_approved(24_500, [MANAGER, FINANCE]))

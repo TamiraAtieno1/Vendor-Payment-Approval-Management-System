@@ -12,8 +12,9 @@ Why separate it out (Separation of Concerns):
   an HTTP handler.
 
 Rules implemented so far:
-  1. required_levels(amount)  -> which approval tiers a payment needs.
-  2. can_approve(...)         -> may THIS user record an approval right now?
+  1. required_levels(amount)     -> which approval tiers a payment needs.
+  2. can_approve(...)            -> may THIS user record an approval right now?
+  3. is_fully_approved(amount, ) -> have all required tiers approved?
 """
 
 from decimal import Decimal
@@ -109,3 +110,18 @@ def can_approve(*, approver_role, approver_is_requester, amount, approved_levels
         return ApprovalCheck(False, REASON_ALREADY_APPROVED)
 
     return ApprovalCheck(True, None)
+
+
+# --- Rule 3: is the request fully approved? -------------------------------
+def is_fully_approved(amount, approved_levels):
+    """True once EVERY tier this amount requires has recorded an approval.
+
+    - amount:          the request amount (decides the required tiers).
+    - approved_levels: tiers that have approved (e.g. from Approval rows).
+
+    Uses set subset logic, so it's order-independent (manager-then-finance or
+    finance-then-manager both count) and tolerant of extra entries. This is the
+    gate the view will check before transitioning a request to 'Approved'.
+    """
+    needed = set(required_levels(amount))
+    return needed.issubset(set(approved_levels))
