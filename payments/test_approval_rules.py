@@ -10,7 +10,17 @@ from decimal import Decimal
 from django.test import SimpleTestCase
 
 from payments import services
-from payments.services import MANAGER, FINANCE
+from payments.services import (
+    MANAGER,
+    FINANCE,
+    REASON_NOT_AN_APPROVER,
+    REASON_SELF_APPROVAL,
+    REASON_TIER_NOT_REQUIRED,
+    REASON_ALREADY_APPROVED,
+)
+
+EMPLOYEE = "EMPLOYEE"
+ADMIN = "ADMIN"
 
 
 class RequiredLevelsTests(SimpleTestCase):
@@ -43,3 +53,104 @@ class RequiredLevelsTests(SimpleTestCase):
     def test_accepts_decimal_and_string_amounts(self):
         self.assertEqual(services.required_levels(Decimal("24500")), (MANAGER,))
         self.assertEqual(services.required_levels("67000"), (MANAGER, FINANCE))
+
+
+class CanApproveTests(SimpleTestCase):
+    """Rule 2: may-this-user-approve (RBAC + self-approval + tier correctness)."""
+
+    # --- The allowed paths ---
+    def test_manager_approves_small_request_they_did_not_create(self):
+        # carol (manager) approving a 24,500 request raised by alice.
+        result = services.can_approve(
+            approver_role=MANAGER,
+            approver_is_requester=False,
+            amount=24_500,
+            approved_levels=[],
+        )
+        self.assertEqual(result, services.ApprovalCheck(True, None))
+        self.assertTrue(result.allowed)
+
+    def test_finance_may_approve_large_request_after_manager(self):
+        # faith (finance) on a 67,000 request the manager already approved.
+        result = services.can_approve(
+            approver_role=FINANCE,
+            approver_is_requester=False,
+            amount=67_000,
+            approved_levels=[MANAGER],
+        )
+        self.assertTrue(result.allowed)
+
+    def test_finance_may_approve_large_request_before_manager(self):
+        # The two >50k approvals are separate and order-independent.
+        result = services.can_approve(
+            approver_role=FINANCE,
+            approver_is_requester=False,
+            amount=148_000,
+            approved_levels=[],
+        )
+        self.assertTrue(result.allowed)
+
+    # --- RBAC: only manager / finance roles may approve ---
+    def test_employee_cannot_approve(self):
+        result = services.can_approve(
+            approver_role=EMPLOYEE,
+            approver_is_requester=False,
+            amount=24_500,
+            approved_levels=[],
+        )
+        self.assertFalse(result.allowed)
+        self.assertEqual(result.reason, REASON_NOT_AN_APPROVER)
+
+    def test_admin_cannot_approve(self):
+        result = services.can_approve(
+            approver_role=ADMIN,
+            approver_is_requester=False,
+            amount=24_500,
+            approved_levels=[],
+        )
+        self.assertEqual(result.reason, REASON_NOT_AN_APPROVER)
+
+    # --- Separation of duties: no approving your own request ---
+    def test_manager_cannot_approve_own_request(self):
+        result = services.can_approve(
+            approver_role=MANAGER,
+            approver_is_requester=True,
+            amount=24_500,
+            approved_levels=[],
+        )
+        self.assertFalse(result.allowed)
+        self.assertEqual(result.reason, REASON_SELF_APPROVAL)
+
+    # --- Tier correctness: your tier must be one the amount needs ---
+    def test_finance_cannot_approve_manager_only_request(self):
+        # 24,500 needs a manager only; a finance approval doesn't count.
+        result = services.can_approve(
+            approver_role=FINANCE,
+            approver_is_requester=False,
+            amount=24_500,
+            approved_levels=[],
+        )
+        self.assertEqual(result.reason, REASON_TIER_NOT_REQUIRED)
+
+    # --- No double-approval by the same tier ---
+    def test_manager_cannot_approve_twice(self):
+        result = services.can_approve(
+            approver_role=MANAGER,
+            approver_is_requester=False,
+            amount=67_000,
+            approved_levels=[MANAGER],
+        )
+        self.assertFalse(result.allowed)
+        self.assertEqual(result.reason, REASON_ALREADY_APPROVED)
+
+    # --- Ordering: role check precedes the self-approval check ---
+    def test_employee_on_own_request_reports_role_first(self):
+        # An employee who raised the request fails on role, not self-approval,
+        # because an employee can never approve anything.
+        result = services.can_approve(
+            approver_role=EMPLOYEE,
+            approver_is_requester=True,
+            amount=24_500,
+            approved_levels=[],
+        )
+        self.assertEqual(result.reason, REASON_NOT_AN_APPROVER)
