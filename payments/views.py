@@ -10,3 +10,6 @@ def health_check(request):
 # Create your views here.
 class EmployeeView(TemplateView):
     template_name = "payments/employee.html"
+
+class ManagerView(TemplateView):
+    template_name = "payments/manager.html"
