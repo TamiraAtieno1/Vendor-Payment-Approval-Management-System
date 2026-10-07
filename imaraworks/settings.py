@@ -27,6 +27,9 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
+# Payment gateway used when none is given (see payments.gateways.registry).
+PAYMENT_GATEWAY = 'mock'
+
 
 # Application definition
 
