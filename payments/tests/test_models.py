@@ -5,7 +5,7 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from django.test import TestCase
 
-from .models import PaymentRequest, PaymentTransaction, Profile, Project, Vendor
+from payments.models import PaymentRequest, PaymentTransaction, Profile, Project, Vendor
 
 
 class PaymentRequestModelTests(TestCase):
