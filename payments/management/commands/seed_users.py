@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
-from payments.models import Profile, Vendor, Project
+from payments.models import PaymentRequest, Profile, Vendor, Project
 
 class Command(BaseCommand):
     help = 'Seeds the six sample users from the case study'
@@ -48,3 +48,26 @@ class Command(BaseCommand):
             project, created = Project.objects.get_or_create(name=name)
             status = 'Created' if created else 'Already exists'
             self.stdout.write(f'{status}: project {name}')
+
+        requests_data = [
+            ('Metro Hardware Ltd.', 'Westlands Project', '30000.00',
+             PaymentRequest.PENDING, 'alice', 'Steel reinforcement bars'),
+            ('SwiftHaul Logistics', 'Mombasa Road Project', '75000.00',
+             PaymentRequest.APPROVED, 'brian', 'Mobilisation advance'),
+            ('Apex Electricals', None, '1200.00',
+             PaymentRequest.DRAFT, 'david', 'Replacement sockets'),
+        ]
+        for vendor_name, project_name, amount, req_status, owner, description in requests_data:
+            vendor = Vendor.objects.get(name=vendor_name)
+            project = Project.objects.get(name=project_name) if project_name else None
+            owner = User.objects.filter(username=owner).first()
+            if owner is None:
+                self.stdout.write(f'Skip request (owner {owner!r} missing): {description}')
+                continue
+            request, created = PaymentRequest.objects.get_or_create(
+                vendor=vendor, project=project, description=description,
+                defaults={'amount': amount, 'status': req_status,
+                          'created_by': owner},
+            )
+            status = 'Created' if created else 'Already exists'
+            self.stdout.write(f'{status}: request {request.id} ({description})')
