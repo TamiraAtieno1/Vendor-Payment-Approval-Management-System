@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
-from payments.models import Profile
+from payments.models import Profile, Vendor, Project
 
 class Command(BaseCommand):
     help = 'Seeds the six sample users from the case study'
@@ -29,3 +29,22 @@ class Command(BaseCommand):
 
             status = 'Created' if created else 'Already exists'
             self.stdout.write(f'{status}: {username} ({role})')
+
+        vendors_data = [
+            ('Metro Hardware Ltd.', 'Construction materials'),
+            ('Prime Cement Supplies', 'Cement'),
+            ('SwiftHaul Logistics', 'Transport'),
+            ('PowerHire Kenya', 'Equipment rental'),
+            ('Apex Electricals', 'Electrical materials'),
+            ('BlueLine Plumbing', 'Plumbing services'),
+        ]
+        for name, service in vendors_data:
+            vendor, created = Vendor.objects.get_or_create(name=name, defaults={'service': service})
+            status = 'Created' if created else 'Already exists'
+            self.stdout.write(f'{status}: vendor {name}')
+
+        projects_data = ['Westlands Project', 'Mombasa Road Project', 'Kisumu Project']
+        for name in projects_data:
+            project, created = Project.objects.get_or_create(name=name)
+            status = 'Created' if created else 'Already exists'
+            self.stdout.write(f'{status}: project {name}')
