@@ -22,12 +22,15 @@ which is the plan's own stated goal.
 
 from decimal import Decimal
 
+from payments.models import Profile
+
 # --- Roles (owned by A's Profile) vs levels (recorded on Approval) ---------
-# Role values mirror payments.models.Profile.<ROLE>. They are UPPERCASE.
-# We define them here so this rules layer stays importable before A's models
-# reach main; once Profile is merged we import these from Profile instead.
-ROLE_MANAGER = "MANAGER"
-ROLE_FINANCE = "FINANCE"
+# Roles come straight from Profile so there is one source of truth: if A ever
+# renames a role value, these rules follow automatically. Importing the model
+# class only reads its constants -- no database access -- so this layer stays
+# pure and its tests still run without a DB.
+ROLE_MANAGER = Profile.MANAGER
+ROLE_FINANCE = Profile.FINANCE
 
 # Levels are what an Approval row records. Per the execution plan they are
 # LOWERCASE and distinct from role names: a role is a capability, a level is

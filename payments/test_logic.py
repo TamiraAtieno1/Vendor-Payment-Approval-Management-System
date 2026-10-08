@@ -13,11 +13,12 @@ from django.test import SimpleTestCase
 
 from payments import logic
 from payments.logic import LEVEL_MANAGER as M, LEVEL_FINANCE as F
+from payments.models import Profile
 
-EMPLOYEE = "EMPLOYEE"
-MANAGER = "MANAGER"
-FINANCE = "FINANCE"
-ADMIN = "ADMIN"
+EMPLOYEE = Profile.EMPLOYEE
+MANAGER = Profile.MANAGER
+FINANCE = Profile.FINANCE
+ADMIN = Profile.ADMIN
 
 
 class RequiredLevelsTests(SimpleTestCase):
